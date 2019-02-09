@@ -10,6 +10,11 @@
     - pve-community
     - pve-enterprise
 
+- name: Adding Apt Keys
+  apt_key:
+    id: E2EF0603
+    url: "http://download.proxmox.com/debian/proxmox-ve-release-5.x.gpg"
+
 - name: Update apt cache
   apt:
     update_cache: yes

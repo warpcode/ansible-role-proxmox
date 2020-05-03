@@ -1,2 +1,4 @@
 ---
 proxmox_is_community: true
+proxmox_debian_release: "{{ ansible_distribution_release }}"
+proxmox_install: false

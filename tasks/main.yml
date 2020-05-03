@@ -1,4 +1,16 @@
 ---
+- name: Ensuring gpg is installed
+  package:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - gpg
+
+- name: Adding Apt Keys
+  apt_key:
+    id: 7BF2812E8A6E88E0
+    url: "http://download.proxmox.com/debian/proxmox-ve-release-6.x.gpg"
+
 - name: Setup sources
   template:
     src: "{{ item }}.list.j2"
@@ -10,12 +22,19 @@
     - pve-community
     - pve-enterprise
 
-- name: Adding Apt Keys
-  apt_key:
-    id: E2EF0603
-    url: "http://download.proxmox.com/debian/proxmox-ve-release-5.x.gpg"
-
 - name: Update apt cache
   apt:
     update_cache: yes
-    cache_valid_time: 86400
+
+# As per https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_Buster#Install_Proxmox_VE_packages
+# Be aware, you must set the IP in hosts as per https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_Buster#Install_a_standard_Debian_Buster_.28amd64.29
+- name: Install proxmox
+  package:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - proxmox-ve
+    - postfix
+    - open-iscsi
+  when: proxmox_install
+

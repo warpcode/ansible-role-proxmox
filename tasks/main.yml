@@ -1,11 +1,4 @@
 ---
-- name: Ensuring gpg is installed
-  package:
-    name: "{{ item }}"
-    state: present
-  with_items:
-    - gpg
-
 - name: Adding Apt Keys
   apt_key:
     id: 7BF2812E8A6E88E0

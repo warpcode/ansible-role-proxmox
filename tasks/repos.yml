@@ -1,0 +1,14 @@
+---
+  - name: Configure enterprise repo
+    apt_repository:
+      filename: pve-enterprise
+      repo: 'deb https://enterprise.proxmox.com/debian/pve {{ proxmox_debian_release }} pve-enterprise'
+      state: "{{ 'present' if not proxmox_is_community else 'absent' }}"
+      update_cache: no
+
+  - name: Configure community repo
+    apt_repository:
+      filename: pve-community
+      repo: 'deb http://download.proxmox.com/debian/pve {{ proxmox_debian_release }} pve-no-subscription'
+      state: "{{ 'present' if proxmox_is_community else 'absent' }}"
+      update_cache: no

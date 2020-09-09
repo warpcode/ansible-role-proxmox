@@ -1,0 +1,210 @@
+---
+  - name: Checking for required vars
+    fail:
+      msg: "{{ required_item }} is not defined."
+    when: item[required_item] is not defined
+    loop_control:
+      loop_var: required_item
+    loop:
+      - id
+      - hostname
+
+  - name: Get VM status
+    shell: "qm status {{ item.id }}"
+    register: vm_status
+    ignore_errors: true
+    changed_when: false
+
+  - name: Checking for required vars for creating a vm
+    fail:
+      msg: "{{ required_item }} is not defined."
+    when: vm_status.rc == 2 and item[required_item] is not defined
+    loop_control:
+      loop_var: required_item
+    loop:
+      - storage_volume
+
+  - name: Creating initial VM
+    command: >
+      qm create {{ item.id }}
+      --name "{{ item.hostname }}"
+      --sockets 1
+      --cores 1
+      --memory 256
+    when: vm_status.rc == 2
+
+  - name: Downloading the image.
+    get_url:
+      url: "{{ item.image | default(proxmox_vms_default_image) }}"
+      dest: "{{ proxmox_vms_download_location }}{{ item.image | default(proxmox_vms_default_image) | hash('sha1') }}-image.qcow2"
+    when: vm_status.rc == 2
+
+  - name: Importing the image into the vm
+    command: qm importdisk {{ item.id }} "{{ proxmox_vms_download_location }}{{ item.image | default(proxmox_vms_default_image) | hash('sha1') }}-image.qcow2" {{ item.storage_volume }}
+    when: vm_status.rc == 2
+
+  - name: Assign disk to VM
+    command: >
+      qm set {{ item.id }}
+      --scsihw virtio-scsi-pci
+      --scsi0 {{ item.storage_volume }}:{{ item.id }}/vm-{{ item.id }}-disk-0.raw
+      --ide2 {{ item.storage_volume }}:cloudinit
+      --serial0 /dev/tty0
+    when: vm_status.rc == 2
+
+  - name: Resizing the template's disk
+    command: qm resize {{ item.id }} scsi0 {{ item.disk_size }}
+    when: vm_status.rc == 2 and item.disk_size is defined
+
+  - name: Get VM config
+    shell: >
+      qm config {{ item.id }} | sed 's/^\(.\+\): \(.\+\)/\1: \"\2\"/g'
+    register: vm_config_cmd
+    ignore_errors: true
+    changed_when: false
+
+  - name: Set Vars
+    set_fact:
+      vm_config: "{{ vm_config_cmd.stdout | from_yaml }}"
+      qm_set: []
+      network_regex: >
+        {%- set new_list = [] -%}
+        {%- if item.net is defined and item.net | length > 0 -%}
+          {%- for net in item.net -%}
+            {%- set net_list = [] -%}
+            {%- for name, value in net.iteritems() -%}
+              {%- if value == '' -%}
+                {%- set net_list = net_list.append(name + "=([^,]+)") -%}
+              {%- else -%}
+                {%- set net_list = net_list.append(name + "=" + value | string) -%}
+              {%- endif -%}
+            {%- endfor -%}
+
+            {%- set new_list = new_list.append(net_list | sort | join(',')) -%}
+          {%- endfor -%}
+        {%- endif -%}
+        {{ new_list }}
+      network_config: >
+        {%- set new_list = [] -%}
+        {%- if item.net is defined and item.net | length > 0 -%}
+          {%- for net in item.net -%}
+            {%- set net_list = [] -%}
+            {%- for name, value in net.iteritems() -%}
+              {%- if value == '' -%}
+                {%- set net_list = net_list.append(name) -%}
+              {%- else -%}
+                {%- set net_list = net_list.append(name + "=" + value | string) -%}
+              {%- endif -%}
+            {%- endfor -%}
+
+            {%- set new_list = new_list.append(net_list | sort | join(',')) -%}
+          {%- endfor -%}
+        {%- endif -%}
+        {{ new_list }}
+      cloud_init_network_config: >
+        {%- set new_list = [] -%}
+        {%- for net in item.cloud_init.ip | default([]) -%}
+          {%- set net_list = [] -%}
+          {%- for name, value in net.iteritems() -%}
+            {%- set net_list = net_list.append(name + "=" + value | string) -%}
+          {%- endfor -%}
+
+          {%- set new_list = new_list.append(net_list | sort | join(',')) -%}
+        {%- endfor -%}
+        {{ new_list }}
+
+  - name: Set options
+    set_fact:
+      qm_set: "{{ qm_set + ['--' + option.config_name + ' \"' + option.value + '\"'] }}"
+    when: option.config_value != option.value
+    loop_control:
+      loop_var: option
+    loop:
+      - config_name: agent
+        config_value: "{{ vm_config.agent | default('') }}"
+        value: "{{ item.qemu_agent | default('0') }}"
+      - config_name: bios
+        config_value: "{{ vm_config.bios | default('') }}"
+        value: "{{ item.bios | default('') }}"
+      - config_name: boot
+        config_value: "{{ vm_config.boot | default('cdn') }}"
+        value: "{{ item.boot | default('c') }}"
+      - config_name: bootdisk
+        config_value: "{{ vm_config.bootdisk | default('') }}"
+        value: "{{ item.bootdisk | default('scsi0') }}"
+      - config_name: ciuser
+        config_value: "{{ vm_config.ciuser | default('') }}"
+        value: "{{ item.cloud_init.user | default('') }}"
+      - config_name: cores
+        config_value: "{{ vm_config.cores | default('') }}"
+        value: "{{ item.cores | default('1') }}"
+      - config_name: cpulimit
+        config_value: "{{ vm_config.cpulimit | default('0') }}"
+        value: "{{ item.cpulimit | default('0') }}"
+      - config_name: cpuunits
+        config_value: "{{ vm_config.cpuunits | default('1024') }}"
+        value: "{{ item.cpuunits | default('1024') }}"
+      - config_name: description
+        config_value: "{{ vm_config.description | default('') }}"
+        value: "{{ item.description | default('') }}"
+      - config_name: name
+        config_value: "{{ vm_config.name | default('') }}"
+        value: "{{ item.hostname }}"
+      - config_name: memory
+        config_value: "{{ vm_config.memory | default('') }}"
+        value: "{{ item.memory | default('256') }}"
+      - config_name: sockets
+        config_value: "{{ vm_config.sockets | default('') }}"
+        value: "{{ item.sockets | default('1') }}"
+
+  - name: Configure network
+    set_fact:
+      qm_set: "{{ qm_set + ['--net' + network_index | string + ' \"' + network_config[network_index] + '\"'] }}"
+    when:
+      - network_regex[network_index] is defined
+      - network_config[network_index] is defined
+      - vm_config['net' + network_index | string] is not defined or not vm_config['net' + network_index|string].split(',')|sort|join(',') | regex_search('^' + network_regex[network_index] + '$')
+    loop_control:
+      index_var: network_index
+      loop_var: network
+    loop: "{{ item.net|flatten(levels=1) }}"
+
+  - name: Set cloud init password if not set
+    set_fact:
+      qm_set: "{{ qm_set + ['--cipassword \"' + item.cloud_init.password|string + '\"'] }}"
+    when:
+      - vm_config.cipassword is not defined
+      - item.cloud_init.password | default('') != ''
+
+  - name: Configure cloud init network
+    set_fact:
+      qm_set: "{{ qm_set + ['--ipconfig' + network_index | string + ' \"' + network|string + '\"'] }}"
+    when:
+      - vm_config["ipconfig" + network_index | string] is not defined or vm_config["ipconfig" + network_index|string].split(",")|sort|join(",") != network.split(",")|sort|join(",")
+    loop_control:
+      index_var: network_index
+      loop_var: network
+    loop: "{{ cloud_init_network_config|flatten(levels=1) }}"
+
+  - name: Configure cloud init ssh keys
+    block:
+      - name: Saving cloud init ssh keys to a temporary file
+        copy:
+          content: "{{ item.cloud_init.ssh_keys|join('\n')|default('')|trim }}"
+          dest: /tmp/pve_cloudinit_sshkeys
+
+      - name: Saving cloud init ssh keys
+        set_fact:
+          qm_set: "{{ qm_set + ['--sshkeys /tmp/pve_cloudinit_sshkeys'] }}"
+    when:
+      - item.cloud_init.ssh_keys is defined
+      - vm_config.sshkeys|default("")|urldecode()|trim != item.cloud_init.ssh_keys|join("\n")|default("")|trim
+
+  - name: Apply VM settings
+    command: "qm set {{ item.id }} {{ qm_set | join(' ') }}"
+    when: qm_set | length > 0
+
+  - name: Cleaning up cloud init ssh keys temporary file
+    file:
+      path: /tmp/pve_cloudinit_sshkeys
+      state: absent

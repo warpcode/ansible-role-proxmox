@@ -2,3 +2,39 @@
 proxmox_is_community: true
 proxmox_debian_release: "{{ ansible_distribution_release }}"
 proxmox_install: false
+
+# VM config
+# [
+#   image: https://cdimage.debian.org/cdimage/openstack/current-10/debian-10-openstack-amd64.qcow2
+#   id: 2000
+#   #state: present
+#   hostname: test
+#   cpu_cores: 1
+#   cpu_sockets: 1
+#   memory: 512
+#   qemu_agent: 1
+#   disk_size: 8G
+#   #ip: 192.168.0.100
+#   #subnet_size: "/24"
+#   #gateway: 192.168.1.1
+#   #dns: 192.168.1.1
+#   #search_domain: 192.168.1.1
+#   storage_volume: local-lvm
+#   cloud_init:
+#     user: vagrant
+#     # password will only run if no password has been set
+#     password: vagrant
+#     ip:
+#       - gw: 192.168.0.1
+#         ip: 192.168.0.99/24
+#     ssh_keys:
+#       - public key contents 1
+#       - public key contents 2
+#   net:
+#     - bridge: vmbr0
+#       virtio: ''
+#       tag: 40
+# ]
+proxmox_vms: []
+proxmox_vms_default_image: 'https://cdimage.debian.org/cdimage/openstack/current-10/debian-10-openstack-amd64.qcow2'
+proxmox_vms_download_location: '/tmp/'

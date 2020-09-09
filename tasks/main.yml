@@ -33,3 +33,7 @@
   - name: Re-checking proxmox repos
     include: repos.yml
     when: proxmox_install
+
+  - name: Create VM's
+    include: vms.yml
+    with_items: "{{ proxmox_vms }}"

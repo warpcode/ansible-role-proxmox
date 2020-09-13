@@ -14,11 +14,8 @@ proxmox_install: false
 #   memory: 512
 #   qemu_agent: 1
 #   disk_size: 8G
-#   #ip: 192.168.0.100
-#   #subnet_size: "/24"
-#   #gateway: 192.168.1.1
-#   #dns: 192.168.1.1
-#   #search_domain: 192.168.1.1
+#   #nameserver: 192.168.1.1
+#   #searchdomain: 192.168.1.1
 #   storage_volume: local-lvm
 #   cloud_init:
 #     user: vagrant

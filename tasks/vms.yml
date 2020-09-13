@@ -150,9 +150,15 @@
       - config_name: name
         config_value: "{{ vm_config.name | default('') }}"
         value: "{{ item.hostname }}"
+      - config_name: nameserver
+        config_value: "{{ vm_config.nameserver | default('') | trim }}"
+        value: "{{ item.nameserver | default('') | trim }}"
       - config_name: memory
         config_value: "{{ vm_config.memory | default('') }}"
         value: "{{ item.memory | default('256') }}"
+      - config_name: searchdomain
+        config_value: "{{ vm_config.searchdomain | default('') | trim }}"
+        value: "{{ item.searchdomain | default('') | trim }}"
       - config_name: sockets
         config_value: "{{ vm_config.sockets | default('') }}"
         value: "{{ item.sockets | default('1') }}"

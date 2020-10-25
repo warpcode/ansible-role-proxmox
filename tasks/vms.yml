@@ -214,3 +214,12 @@
     file:
       path: /tmp/pve_cloudinit_sshkeys
       state: absent
+
+  - name: Starting VM
+    command: "qm start {{ item.id }}"
+    when: item.state | default('') == 'running' and (vm_status.rc == 2 or vm_status.stdout.find('stopped') > -1)
+
+  - name: Stopping VM
+    command: "qm stop {{ item.id }}"
+    when: item.state | default('') == 'stopped' and vm_status.stdout.find('running') > -1
+
